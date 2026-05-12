@@ -174,10 +174,22 @@ for ano in anos:
         print(f"\nRodada {rodada}")
         print(url)
 
-        response = requests.get(
-            url,
-            headers=headers
-        )
+        try:
+
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=15
+            )
+
+        except Exception as erro:
+
+            print(
+                f"Erro de conexão na rodada {rodada}: "
+                f"{erro}"
+            )
+
+            continue
 
         if response.status_code != 200:
 
@@ -203,9 +215,15 @@ for ano in anos:
 
             continue
 
-        linhas = tabela.find(
-            "tbody"
-        ).find_all("tr")
+        tbody = tabela.find("tbody")
+
+        if not tbody:
+
+            print("Corpo da tabela não encontrado")
+
+            continue
+
+        linhas = tbody.find_all("tr")
 
         classificacao = []
 
@@ -235,7 +253,7 @@ for ano in anos:
                     (posicao, clube)
                 )
 
-            except:
+            except Exception:
                 continue
 
         classificacao.sort(
@@ -310,17 +328,30 @@ ranking_df = pd.DataFrame(
 # TOTAL GERAL
 # =========================================
 
-total_geral_df = (
-    ranking_df
-    .groupby("Clube")["Rodadas na Zona"]
-    .sum()
-    .reset_index()
-)
+if not ranking_df.empty:
 
-total_geral_df = total_geral_df.sort_values(
-    by="Rodadas na Zona",
-    ascending=False
-)
+    total_geral_df = (
+        ranking_df
+        .groupby(
+            "Clube",
+            as_index=False
+        )["Rodadas na Zona"]
+        .sum()
+    )
+
+    total_geral_df = total_geral_df.sort_values(
+        by="Rodadas na Zona",
+        ascending=False
+    )
+
+else:
+
+    total_geral_df = pd.DataFrame(
+        columns=[
+            "Clube",
+            "Rodadas na Zona"
+        ]
+    )
 
 # =========================================
 # EXPORTAÇÃO PARA EXCEL
