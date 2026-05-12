@@ -5,16 +5,71 @@ import pandas as pd
 import time
 
 # =========================================
-# ENTRADA DO INTERVALO DE ANOS
+# INFORMAÇÕES IMPORTANTES
+# =========================================
+
+print("\n====================================")
+print("INFORMAÇÕES DAS TEMPORADAS")
+print("====================================")
+
+print("\nQuantidade de rodadas:")
+print("- 2003 e 2004: 46 rodadas")
+print("- 2005: 42 rodadas")
+print("- 2006 em diante: 38 rodadas")
+
+print("\nZona de rebaixamento:")
+print("- 2003: 2 rebaixados")
+print("- 2004 em diante: 4 rebaixados")
+
+print("\n====================================")
+
+# =========================================
+# ENTRADA DOS ANOS
 # =========================================
 
 entrada_anos = input(
-    "Informe o intervalo de anos (ex: 2003-2020): "
+    "\nInforme um ano ou intervalo "
+    "(ex: 2026 ou 2003-2020): "
 ).strip()
 
-ano_inicial, ano_final = map(int, entrada_anos.split("-"))
+# Caso seja apenas um ano
+if "-" not in entrada_anos:
+
+    ano_inicial = int(entrada_anos)
+    ano_final = int(entrada_anos)
+
+# Caso seja intervalo
+else:
+
+    ano_inicial, ano_final = map(
+        int,
+        entrada_anos.split("-")
+    )
 
 anos = list(range(ano_inicial, ano_final + 1))
+
+# =========================================
+# ENTRADA DAS RODADAS
+# =========================================
+
+entrada_rodadas = input(
+    "\nInforme uma rodada ou intervalo "
+    "(ex: 10 ou 1-20): "
+).strip()
+
+# Apenas uma rodada
+if "-" not in entrada_rodadas:
+
+    rodada_inicial = int(entrada_rodadas)
+    rodada_final = int(entrada_rodadas)
+
+# Intervalo de rodadas
+else:
+
+    rodada_inicial, rodada_final = map(
+        int,
+        entrada_rodadas.split("-")
+    )
 
 # =========================================
 # CONFIGURAÇÕES
@@ -79,7 +134,6 @@ for ano in anos:
     print(f"PROCESSANDO ANO {ano}")
     print("====================================")
 
-    # saison_id = ano - 1
     saison_id = ano - 1
 
     total_rodadas = obter_total_rodadas(ano)
@@ -93,31 +147,65 @@ for ano in anos:
     contagem_zona = defaultdict(int)
 
     # =========================================
+    # AJUSTA LIMITE DE RODADAS
+    # =========================================
+
+    rodada_inicio_real = max(1, rodada_inicial)
+
+    rodada_final_real = min(
+        rodada_final,
+        total_rodadas
+    )
+
+    # =========================================
     # LOOP DAS RODADAS
     # =========================================
 
-    for rodada in range(1, total_rodadas + 1):
+    for rodada in range(
+        rodada_inicio_real,
+        rodada_final_real + 1
+    ):
 
-        url = base_url.format(saison_id, rodada)
+        url = base_url.format(
+            saison_id,
+            rodada
+        )
 
         print(f"\nRodada {rodada}")
         print(url)
 
-        response = requests.get(url, headers=headers)
+        response = requests.get(
+            url,
+            headers=headers
+        )
 
         if response.status_code != 200:
-            print(f"Erro ao acessar rodada {rodada}")
+
+            print(
+                f"Erro ao acessar rodada {rodada}"
+            )
+
             continue
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(
+            response.text,
+            "html.parser"
+        )
 
-        tabela = soup.find("table", class_="items")
+        tabela = soup.find(
+            "table",
+            class_="items"
+        )
 
         if not tabela:
-            print(f"Tabela não encontrada")
+
+            print("Tabela não encontrada")
+
             continue
 
-        linhas = tabela.find("tbody").find_all("tr")
+        linhas = tabela.find(
+            "tbody"
+        ).find_all("tr")
 
         classificacao = []
 
@@ -130,23 +218,36 @@ for ano in anos:
 
             try:
 
-                posicao = cols[0].get_text(strip=True)
+                posicao = cols[0].get_text(
+                    strip=True
+                )
+
                 posicao = posicao.replace(".", "")
+
                 posicao = int(posicao)
 
-                clube = cols[2].get_text(" ", strip=True)
+                clube = cols[2].get_text(
+                    " ",
+                    strip=True
+                )
 
-                classificacao.append((posicao, clube))
+                classificacao.append(
+                    (posicao, clube)
+                )
 
             except:
                 continue
 
-        classificacao.sort(key=lambda x: x[0])
+        classificacao.sort(
+            key=lambda x: x[0]
+        )
 
         # Últimos colocados da zona
         zona = classificacao[-tamanho_zona:]
 
-        zona_times = [x[1] for x in zona]
+        zona_times = [
+            x[1] for x in zona
+        ]
 
         # =========================================
         # SALVA RODADA
@@ -155,7 +256,8 @@ for ano in anos:
         todas_rodadas.append({
             "Ano": ano,
             "Rodada": rodada,
-            "Zona de Rebaixamento": ", ".join(zona_times)
+            "Zona de Rebaixamento":
+                ", ".join(zona_times)
         })
 
         # =========================================
@@ -163,6 +265,7 @@ for ano in anos:
         # =========================================
 
         for clube in zona_times:
+
             contagem_zona[clube] += 1
 
         print(f"Zona: {zona_times}")
@@ -195,16 +298,24 @@ for ano in anos:
 # EXPORTAÇÃO PARA EXCEL
 # =========================================
 
-rodadas_df = pd.DataFrame(todas_rodadas)
+rodadas_df = pd.DataFrame(
+    todas_rodadas
+)
 
-ranking_df = pd.DataFrame(todos_ranking)
+ranking_df = pd.DataFrame(
+    todos_ranking
+)
 
 arquivo_excel = (
     f"zona_rebaixamento_"
-    f"{ano_inicial}_a_{ano_final}.xlsx"
+    f"{ano_inicial}_a_{ano_final}_"
+    f"rodadas_"
+    f"{rodada_inicial}_a_{rodada_final}.xlsx"
 )
 
-with pd.ExcelWriter(arquivo_excel) as writer:
+with pd.ExcelWriter(
+    arquivo_excel
+) as writer:
 
     rodadas_df.to_excel(
         writer,
