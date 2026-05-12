@@ -1,3 +1,4 @@
+```python
 import requests
 from bs4 import BeautifulSoup
 from collections import defaultdict
@@ -295,7 +296,7 @@ for ano in anos:
         })
 
 # =========================================
-# EXPORTAÇÃO PARA EXCEL
+# DATAFRAMES
 # =========================================
 
 rodadas_df = pd.DataFrame(
@@ -305,6 +306,26 @@ rodadas_df = pd.DataFrame(
 ranking_df = pd.DataFrame(
     todos_ranking
 )
+
+# =========================================
+# TOTAL GERAL
+# =========================================
+
+total_geral_df = (
+    ranking_df
+    .groupby("Clube")["Rodadas na Zona"]
+    .sum()
+    .reset_index()
+)
+
+total_geral_df = total_geral_df.sort_values(
+    by="Rodadas na Zona",
+    ascending=False
+)
+
+# =========================================
+# EXPORTAÇÃO PARA EXCEL
+# =========================================
 
 arquivo_excel = (
     f"zona_rebaixamento_"
@@ -329,8 +350,15 @@ with pd.ExcelWriter(
         index=False
     )
 
+    total_geral_df.to_excel(
+        writer,
+        sheet_name="Total Geral",
+        index=False
+    )
+
 print("\n====================================")
 print("PROCESSAMENTO FINALIZADO")
 print("====================================")
 
 print(f"\nArquivo gerado: {arquivo_excel}")
+```
