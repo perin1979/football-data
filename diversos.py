@@ -17,6 +17,9 @@ print("1 - Qual time ficou mais rodadas na lanterna")
 print("2 - Quantas rodadas um time ficou entre os rebaixados")
 print("3 - Qual time ficou mais rodadas na liderança")
 print("4 - Quantas rodadas um time ficou entre XX e YY")
+print("5 - Em quais rodadas um time ficou na liderança")
+print("6 - Em quais rodadas um time ficou na lanterna")
+print("7 - Em quais rodadas um time ficou entre XX e YY")
 
 opcao = input("\nDigite a opção desejada: ").strip()
 
@@ -55,7 +58,7 @@ def obter_total_rodadas(ano):
 
 
 # =========================================
-# TAMANHO DO Z4
+# TAMANHO DA ZONA
 # =========================================
 
 def obter_tamanho_zona(ano):
@@ -70,7 +73,7 @@ def obter_tamanho_zona(ano):
 total_rodadas = obter_total_rodadas(ano)
 
 # =========================================
-# COLETA TODAS AS CLASSIFICAÇÕES
+# COLETA DOS DADOS
 # =========================================
 
 dados_rodadas = []
@@ -133,14 +136,13 @@ for rodada in range(1, total_rodadas + 1):
 
 df = pd.DataFrame(dados_rodadas)
 
+ultima_posicao = df["Posicao"].max()
+
 # =========================================
 # OPÇÃO 1
-# MAIS RODADAS NA LANTERNA
 # =========================================
 
 if opcao == "1":
-
-    ultima_posicao = df["Posicao"].max()
 
     lanternas = df[
         df["Posicao"] == ultima_posicao
@@ -167,7 +169,6 @@ if opcao == "1":
 
 # =========================================
 # OPÇÃO 2
-# RODADAS ENTRE REBAIXADOS
 # =========================================
 
 elif opcao == "2":
@@ -180,7 +181,7 @@ elif opcao == "2":
 
     zona = df[
         df["Posicao"] >= (
-            df["Posicao"].max()
+            ultima_posicao
             - tamanho_zona
             + 1
         )
@@ -195,7 +196,7 @@ elif opcao == "2":
     total = len(resultado)
 
     print("\n====================================")
-    print("TOTAL NA ZONA DE REBAIXAMENTO")
+    print("TOTAL NA ZONA")
     print("====================================\n")
 
     print(
@@ -205,7 +206,6 @@ elif opcao == "2":
 
 # =========================================
 # OPÇÃO 3
-# MAIS RODADAS NA LIDERANÇA
 # =========================================
 
 elif opcao == "3":
@@ -235,7 +235,6 @@ elif opcao == "3":
 
 # =========================================
 # OPÇÃO 4
-# RODADAS ENTRE XX E YY
 # =========================================
 
 elif opcao == "4":
@@ -282,7 +281,145 @@ elif opcao == "4":
     )
 
 # =========================================
-# EXPORTAÇÃO EXCEL
+# OPÇÃO 5
+# =========================================
+
+elif opcao == "5":
+
+    nome_time = input(
+        "\nInforme o nome do time: "
+    ).strip().lower()
+
+    resultado = df[
+        (
+            df["Posicao"] == 1
+        )
+        &
+        (
+            df["Clube"]
+            .str.lower()
+            .str.contains(nome_time)
+        )
+    ]
+
+    rodadas = resultado["Rodada"].tolist()
+
+    print("\n====================================")
+    print("RODADAS NA LIDERANÇA")
+    print("====================================\n")
+
+    if rodadas:
+
+        print(
+            f"{nome_time.title()} "
+            f"liderou nas rodadas:"
+        )
+
+        print(", ".join(map(str, rodadas)))
+
+    else:
+
+        print("Nenhuma rodada encontrada")
+
+# =========================================
+# OPÇÃO 6
+# =========================================
+
+elif opcao == "6":
+
+    nome_time = input(
+        "\nInforme o nome do time: "
+    ).strip().lower()
+
+    resultado = df[
+        (
+            df["Posicao"] == ultima_posicao
+        )
+        &
+        (
+            df["Clube"]
+            .str.lower()
+            .str.contains(nome_time)
+        )
+    ]
+
+    rodadas = resultado["Rodada"].tolist()
+
+    print("\n====================================")
+    print("RODADAS NA LANTERNA")
+    print("====================================\n")
+
+    if rodadas:
+
+        print(
+            f"{nome_time.title()} "
+            f"foi lanterna nas rodadas:"
+        )
+
+        print(", ".join(map(str, rodadas)))
+
+    else:
+
+        print("Nenhuma rodada encontrada")
+
+# =========================================
+# OPÇÃO 7
+# =========================================
+
+elif opcao == "7":
+
+    nome_time = input(
+        "\nInforme o nome do time: "
+    ).strip().lower()
+
+    intervalo = input(
+        "Informe o intervalo de posições (ex: 5-10): "
+    ).strip()
+
+    pos_inicio, pos_fim = map(
+        int,
+        intervalo.split("-")
+    )
+
+    resultado = df[
+        (
+            df["Posicao"] >= pos_inicio
+        )
+        &
+        (
+            df["Posicao"] <= pos_fim
+        )
+        &
+        (
+            df["Clube"]
+            .str.lower()
+            .str.contains(nome_time)
+        )
+    ]
+
+    rodadas = resultado["Rodada"].tolist()
+
+    print("\n====================================")
+    print("RODADAS NO INTERVALO")
+    print("====================================\n")
+
+    if rodadas:
+
+        print(
+            f"{nome_time.title()} "
+            f"ficou entre "
+            f"{pos_inicio}º e {pos_fim}º "
+            f"nas rodadas:"
+        )
+
+        print(", ".join(map(str, rodadas)))
+
+    else:
+
+        print("Nenhuma rodada encontrada")
+
+# =========================================
+# EXPORTAÇÃO
 # =========================================
 
 arquivo_excel = (
