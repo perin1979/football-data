@@ -1,4 +1,3 @@
-```python
 import requests
 from bs4 import BeautifulSoup
 from collections import defaultdict
@@ -361,4 +360,3 @@ print("PROCESSAMENTO FINALIZADO")
 print("====================================")
 
 print(f"\nArquivo gerado: {arquivo_excel}")
-```
