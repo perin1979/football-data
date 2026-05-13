@@ -6,55 +6,65 @@ import re
 import time
 
 BASE_URL = "https://gremiopedia.com"
-START_URL = "https://gremiopedia.com/wiki/Jogos_do_Gr%C3%AAmio_em_2025"
+SEASONS_URL = "https://gremiopedia.com/wiki/Temporadas"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
+
+# Allowed stadiums
+VALID_STADIUMS = [
+    "Arena do Grêmio",
+    "Estádio Olímpico",
+    "Estádio Olímpico Monumental",
+    "Estádio da Baixada"
+]
 
 
 def clean_text(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def get_internal_links(url):
+def get_season_page(year):
     """
-    Extract internal wiki links from a page
+    Find the season page URL for the informed year
+    from:
+    https://gremiopedia.com/wiki/Temporadas
     """
-    response = requests.get(url, headers=HEADERS)
+
+    print(f"\nSearching season page for {year}...")
+
+    response = requests.get(SEASONS_URL, headers=HEADERS)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    links = set()
-
     for a in soup.find_all("a", href=True):
-        href = a["href"]
 
-        # Only wiki pages
-        if href.startswith("/wiki/"):
+        text = clean_text(a.get_text())
 
-            # Ignore anchors, files, categories etc
-            if any(x in href for x in [
-                "Especial:",
-                "Arquivo:",
-                "Categoria:",
-                "#"
-            ]):
-                continue
+        # Match exact year
+        if text == str(year):
 
-            full_url = urljoin(BASE_URL, href)
-            links.add(full_url)
+            href = a["href"]
 
-    return links
+            if href.startswith("/wiki/"):
+                full_url = urljoin(BASE_URL, href)
+
+                print(f"Season page found:")
+                print(full_url)
+
+                return full_url
+
+    return None
 
 
-def find_arena_matches(url):
+def find_match_links(url):
     """
-    Search tables recursively and extract
-    Ficha Técnica links where sixth column (Local)
-    = Arena do Grêmio
+    Extract all Ficha Técnica links
+    where Local is one of allowed stadiums
     """
+
     response = requests.get(url, headers=HEADERS)
     response.raise_for_status()
 
@@ -65,12 +75,14 @@ def find_arena_matches(url):
     tables = soup.find_all("table")
 
     for table in tables:
+
         rows = table.find_all("tr")
 
         if len(rows) < 2:
             continue
 
         for row in rows[1:]:
+
             cols = row.find_all(["td", "th"])
 
             # Must have at least 6 columns
@@ -80,14 +92,16 @@ def find_arena_matches(url):
             # Sixth column = Local
             local = clean_text(cols[5].get_text())
 
-            if local != "Arena do Grêmio":
+            if local not in VALID_STADIUMS:
                 continue
 
-            # Search "Ficha Técnica" link in row
+            # Search Ficha Técnica link
             ficha_link = None
 
             for a in row.find_all("a", href=True):
+
                 if "Ficha Técnica" in a.get_text():
+
                     ficha_link = urljoin(BASE_URL, a["href"])
                     break
 
@@ -99,8 +113,9 @@ def find_arena_matches(url):
 
 def extract_match_data(url):
     """
-    Extract data from each Ficha Técnica page
+    Extract match data from Ficha Técnica page
     """
+
     response = requests.get(url, headers=HEADERS)
     response.raise_for_status()
 
@@ -113,10 +128,12 @@ def extract_match_data(url):
     date = date_match.group(1) if date_match else ""
 
     # ---------------- MATCH ----------------
-    title = soup.find("h1")
     jogo = ""
 
+    title = soup.find("h1")
+
     if title:
+
         jogo = title.get_text()
 
         jogo = jogo.replace("Ficha Técnica:", "")
@@ -133,18 +150,21 @@ def extract_match_data(url):
     competition = ""
 
     competition_patterns = [
-        r'Campeonato Gaúcho',
-        r'Campeonato Brasileiro',
-        r'Brasileirão',
-        r'Copa do Brasil',
-        r'Copa Sul-Americana',
-        r'Libertadores',
-        r'Recopa',
-        r'Recopa Gaúcha'
+        "Campeonato Gaúcho",
+        "Campeonato Brasileiro",
+        "Brasileirão",
+        "Copa do Brasil",
+        "Copa Libertadores",
+        "Libertadores",
+        "Copa Sul-Americana",
+        "Recopa",
+        "Recopa Gaúcha"
     ]
 
     for pattern in competition_patterns:
+
         if re.search(pattern, text, re.IGNORECASE):
+
             competition = pattern
             break
 
@@ -180,10 +200,20 @@ def extract_match_data(url):
     if renda_match:
         renda = renda_match.group(1)
 
+    # ---------------- STADIUM ----------------
+    estadio = ""
+
+    for stadium in VALID_STADIUMS:
+
+        if stadium in text:
+            estadio = stadium
+            break
+
     return {
         "Data": date,
         "Jogo": jogo,
         "Competição": competition,
+        "Estádio": estadio,
         "Público Total": publico_total,
         "Público Pagantes": publico_pagante,
         "Renda": renda,
@@ -191,62 +221,42 @@ def extract_match_data(url):
     }
 
 
-def crawl_all_pages(start_url):
-    """
-    Recursively navigate all wiki pages
-    and collect Arena do Grêmio matches
-    """
-    visited = set()
-    to_visit = {start_url}
-
-    ficha_links = set()
-
-    while to_visit:
-        current_url = to_visit.pop()
-
-        if current_url in visited:
-            continue
-
-        visited.add(current_url)
-
-        print(f"Visiting: {current_url}")
-
-        try:
-            # Find Arena matches in current page
-            matches = find_arena_matches(current_url)
-
-            for m in matches:
-                ficha_links.add(m)
-
-            # Get more internal links
-            internal_links = get_internal_links(current_url)
-
-            for link in internal_links:
-                if link not in visited:
-                    to_visit.add(link)
-
-            time.sleep(0.5)
-
-        except Exception as e:
-            print(f"Error visiting {current_url}: {e}")
-
-    return sorted(ficha_links)
-
-
 def main():
 
-    print("Starting recursive crawl...\n")
+    # ---------------- INPUT YEAR ----------------
+    year = input("Enter desired year: ").strip()
 
-    ficha_links = crawl_all_pages(START_URL)
+    if not year.isdigit():
 
-    print(f"\nFound {len(ficha_links)} Arena do Grêmio matches\n")
+        print("Invalid year.")
+        return
 
+    # ---------------- FIND SEASON PAGE ----------------
+    season_url = get_season_page(year)
+
+    if not season_url:
+
+        print(f"Season page for {year} not found.")
+        return
+
+    # ---------------- FIND MATCH LINKS ----------------
+    print("\nSearching matches...\n")
+
+    ficha_links = find_match_links(season_url)
+
+    ficha_links = list(set(ficha_links))
+
+    print(f"Found {len(ficha_links)} matches.\n")
+
+    # ---------------- EXTRACT DATA ----------------
     all_data = []
 
     for i, link in enumerate(ficha_links, start=1):
 
         try:
-            print(f"[{i}/{len(ficha_links)}] Extracting: {link}")
+
+            print(f"[{i}/{len(ficha_links)}] Extracting:")
+            print(link)
 
             data = extract_match_data(link)
 
@@ -255,16 +265,16 @@ def main():
             time.sleep(1)
 
         except Exception as e:
-            print(f"Error extracting {link}: {e}")
 
-    # Create dataframe
+            print(f"Error extracting {link}")
+            print(e)
+
+    # ---------------- DATAFRAME ----------------
     df = pd.DataFrame(all_data)
 
-    # Remove duplicates
-    df = df.drop_duplicates()
-
-    # Sort by date if possible
+    # Sort by date
     try:
+
         df["Data_dt"] = pd.to_datetime(
             df["Data"],
             format="%d/%m/%Y"
@@ -277,18 +287,20 @@ def main():
     except:
         pass
 
-    # Save CSV
+    # ---------------- SAVE CSV ----------------
+    output_file = f"gremio_publico_{year}.csv"
+
     df.to_csv(
-        "gremio_arena_recursive.csv",
+        output_file,
         index=False,
         encoding="utf-8-sig"
     )
 
+    # ---------------- RESULT ----------------
     print("\nDONE!")
     print(df)
 
-    print("\nCSV saved as:")
-    print("gremio_arena_recursive.csv")
+    print(f"\nCSV saved as: {output_file}")
 
 
 if __name__ == "__main__":
